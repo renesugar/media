@@ -129,8 +129,8 @@
             data.url = data.mediaboxUrl;
 
             // select many templates
-            this.SELECT_MANY_SELECTED_ICON = $('[name="select-many-selected-icon"]').html();
-            this.SELECT_MANY_HINT = $('[name="select-many-hint"]').html();
+            this.SELECT_MANY_SELECTED_ICON = $('[name="media-box-select-many-selected-icon"]').html();
+            this.SELECT_MANY_HINT = $('[name="media-box-select-many-hint"]').html();
 
             this.TEMPLATE_IMAGE = $parent.find('[name="media-box-template"]').html();
             this.TEMPLATE_FILE = $parent.find('[name="media-box-file-template"]').html();
@@ -468,7 +468,7 @@
         },
 
         resetImages: function(data, $template) {
-            var cropOptions = data.MediaOption.CropOptions,
+            let cropOptions = data.MediaOption.CropOptions,
                 keys = Object.keys(cropOptions),
                 url = data.MediaOption.OriginalURL;
 
@@ -476,16 +476,17 @@
                 return;
             }
 
-            for (var i = keys.length - 1; i >= 0; i--) {
+            for (let i = keys.length - 1; i >= 0; i--) {
                 cropOptions[keys[i]]['URL'] = url.replace(/original/, keys[i]);
             }
 
             $template.find('img[data-size-name]').each(function() {
-                var $this = $(this),
+                let $this = $(this),
+                    randomString = (Math.random() + 1).toString(36).substring(7),
                     sizeName = $this.data().sizeName;
 
                 if (sizeName != 'original' && cropOptions[sizeName]) {
-                    $this.prop('src', cropOptions[sizeName]['URL']);
+                    $this.prop('src', `${cropOptions[sizeName]['URL']}?${randomString}`);
                 }
             });
         },

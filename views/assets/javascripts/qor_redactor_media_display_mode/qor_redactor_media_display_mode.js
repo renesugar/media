@@ -1,130 +1,165 @@
 // Media display mode for redactor editor
 // By Jason weng @theplant
-//
-$(function() {
-    $.Redactor.prototype.mediadisplaymode = function() {
-        return {
-            langs: {
-                en: {
-                    mediaDisplayMode: 'Media Display Mode',
-                    mediaDisplayModeButton: 'Display mode'
-                }
-            },
-            buttonStyle: {
-                position: 'absolute',
-                'z-index': '5',
-                top: '50%',
-                left: '50%',
-                'margin-top': '-11px',
-                'line-height': '1',
-                'background-color': 'rgba(0,0,0,.9)',
-                'border-radius': '3px',
-                color: '#fff',
-                'font-size': '12px',
-                padding: '7px 10px',
-                cursor: 'pointer',
-                'margin-left': '-120px'
-            },
-            getEditterButton: function() {
-                return `<span id="redactor-image-displaymode" data-redactor="verified" contenteditable="false">${this.lang.get('mediaDisplayModeButton')}</span>`;
-            },
-            getTemplate: function() {
-                return `${String()}<div class="redactor-modal-tab redactor-group">
-                    <div id="redactor-image-preview" class="redactor-modal-tab-side"></div>
-                    <div class="redactor-modal-tab-area" id="redactor-modal-displaymode">
-                        <section>
-                            <select id="modal-media-display-mode">
-                                <option value="0">Please select display mode</option>
-                                <option value="normal">Normal</option>
-                                <option value="original">Original</option>
-                                <option value="fullwidth">Full Width</option>
-                            </select>
-                        </section>
-                        <section>
-                            <button id="redactor-modal-button-action">Save</button>
-                            <button id="redactor-modal-button-cancel">Cancel</button>
-                        </section>
-                    </div></div>`;
-            },
-            init: function() {
-                let $editor = this.core.editor(),
-                    $imgs = $editor.find('img');
+// // product.Meta(&admin.Meta{Name: "Description", Config: &admin.RichEditorConfig{Plugins: []admin.RedactorPlugin{
+// 	{Name: "mediadisplaymode", Source: "/admin/assets/javascripts/qor_redactor_media_display_mode.js"},
+// },
+// 	Settings: map[string]interface{}{
+// 		"mediaDisplayModeOptions": "Left|Right|Container Width|Full Width",
+// 	},
+// }})
+// rendered classname:
+// rd-display-left, rd-display-right, rd-display-containerwidth, rd-display-fullwidth
+$R.add("plugin", "mediadisplaymode", {
+  langs: {
+    en: {
+      mediaDisplayMode: "Media Display Mode",
+      mediaDisplayModeButton: "Display mode"
+    }
+  },
+  getEditterButton: function() {
+    return `<a href="#"><span id="redactor-image-displaymode" data-redactor="verified" contenteditable="false">mediaDisplayModeButton</span></a>`;
+  },
+  init: function(app) {
+    this.app = app;
+    this.opts = app.opts;
+    this.lang = app.lang;
+    this.block = app.block;
+    this.toolbar = app.toolbar;
 
-                if (this.opts.type === 'pre' || this.opts.type === 'inline') {
-                    return;
-                }
+    this.mediadisplaymode = {};
+  },
+  start: function() {
+    const $editor = $(this.app.editor.$editor.nodes[0]);
 
-                $editor.on('click.redactor-mediadisplaymode touchstart.redactor-mediadisplaymode', $imgs, this.mediadisplaymode.setImageEditter.bind(this));
-            },
+    let mediaDisplayModeOptions = this.opts.mediaDisplayModeOptions || "",
+      $modes = "",
+      $imgs = $editor.find("img");
 
-            insertButton: function($ele) {
-                let mode = this.mediadisplaymode;
+    if (
+      this.opts.type === "pre" ||
+      this.opts.type === "inline" ||
+      mediaDisplayModeOptions === ""
+    ) {
+      return;
+    }
 
-                $(mode.getEditterButton())
-                    .css(mode.buttonStyle)
-                    .appendTo($ele.closest('#redactor-image-box'))
-                    .on('click.redactor-mediadisplaymode', mode.show);
-            },
+    mediaDisplayModeOptions.split(/\||,/).forEach(mode => {
+      let value = mode.toLowerCase().replace(/\s/g, "");
+      $modes = `${$modes}<option value="${value}">${mode}</option>`;
+    });
 
-            removeButton: function(e) {
-                if (!$(e.target).closest('#redactor-image-box').length) {
-                    $('#redactor-image-displaymode').remove();
-                    $(document).off('click.redactor-mediadisplaymode');
-                }
-            },
+    this.mediadisplaymode.$modes = $modes;
 
-            setImageEditter: function(e) {
-                let $image = $(e.target),
-                    that = this,
-                    $imageTag = $image.closest(this.opts.imageTag);
+    $editor.on(
+      "click.redactor-mediadisplaymode touchstart.redactor-mediadisplaymode",
+      $imgs,
+      this.setImageEditter.bind(this)
+    );
+  },
 
-                this.mediadisplaymode.$imageTag = $imageTag;
-                this.mediadisplaymode.$image = $image;
-                this.mediadisplaymode.currentDisplaymode = this.mediadisplaymode.getDisplayMode($imageTag.attr('class'));
+  insertButton: function($ele) {
+    let self = this;
+    if ($ele.is("img")) {
+      let $button = $(self.getEditterButton()).prependTo(
+        $(".redactor-context-toolbar.open")
+      );
 
-                $(document).on('click.redactor-mediadisplaymode', this.mediadisplaymode.removeButton);
+      $button.on("click.redactor-mediadisplaymode", function() {
+        self.show.bind(self)($button);
+      });
+    }
+  },
 
-                setTimeout(function() {
-                    that.mediadisplaymode.insertButton($image);
-                }, 10);
-            },
+  removeButton: function(e) {
+    // todo
+    if (!$(e.target).closest("#redactor-image-box").length) {
+      $("#redactor-image-displaymode").remove();
+      $(document).off("click.redactor-mediadisplaymode");
+    }
+  },
 
-            getDisplayMode: function(className) {
-                let mode = className ? className.match(/rd-display-\w+/) : null;
+  setImageEditter: function(e) {
+    let self = this,
+      $image = $(e.target),
+      $imageTag = $image.closest("figure");
 
-                if (mode) {
-                    mode = mode[0].replace('rd-display-', '');
-                }
+    this.mediadisplaymode.$imageTag = $imageTag;
+    this.mediadisplaymode.$image = $image;
+    this.mediadisplaymode.currentDisplaymode = this.getDisplayMode(
+      $imageTag.attr("class")
+    );
 
-                return mode;
-            },
-            show: function() {
-                let currentDisplaymode = this.mediadisplaymode.currentDisplaymode;
+    $(document).on("click.redactor-mediadisplaymode", this.removeButton);
 
-                this.modal.addTemplate('mediadisplaymode', this.mediadisplaymode.getTemplate());
-                this.modal.load('mediadisplaymode', 'Media Display Mode', 600);
+    setTimeout(function() {
+      self.insertButton($image);
+    }, 10);
+  },
 
-                let button = this.modal.getActionButton().text(this.lang.get('save'));
-                button.on('click', this.mediadisplaymode.save);
+  getDisplayMode: function(className) {
+    let mode = className ? className.match(/rd-display-\w+/) : null;
 
-                this.modal.show();
-                $('#modal-media-display-mode').val(currentDisplaymode ? currentDisplaymode : 0);
-                $('#redactor-image-preview').html(`<img src="${this.mediadisplaymode.$image.prop('src')}" style="max-width: 100%; opacity: 1">`);
-            },
-            save: function() {
-                let displayMode = $('#modal-media-display-mode').val(),
-                    $imageTag = this.mediadisplaymode.$imageTag;
+    if (mode) {
+      mode = mode[0].replace("rd-display-", "");
+    }
 
-                // remove all rd-display-* className
-                $imageTag.removeClass(function(index, className) {
-                    return (className.match(/rd-display-\w+/g) || []).join(' ');
-                });
-
-                if (displayMode != 0) {
-                    $imageTag.addClass(`rd-display-${displayMode}`);
-                }
-                this.modal.close();
-            }
-        };
+    return mode;
+  },
+  modals: {
+    mediaModal: `<div class="redactor-modal-tab redactor-group">
+    <div id="redactor-image-preview" class="redactor-modal-tab-side"></div>
+    <div class="redactor-modal-tab-area" id="redactor-modal-displaymode">
+        <section>
+            <select id="modal-media-display-mode">
+                <option value="0">Please select display mode</option>
+            </select>
+        </section>
+    </div></div>`
+  },
+  show: function($button) {
+    var options = {
+      name: "mediaModal",
+      title: "Media Display Mode",
+      handle: "save", // optional, command which will be fired on enter pressed
+      // optional object
+      commands: {
+        save: { title: "Save" },
+        cancel: { title: "Cancel" }
+      }
     };
+    this.app.api("module.modal.build", options);
+  },
+
+  onmodal: {
+    mediaModal: {
+      open: function($modal, $form) {
+        let currentDisplaymode = this.mediadisplaymode.currentDisplaymode;
+
+        $("#modal-media-display-mode").append(this.mediadisplaymode.$modes);
+
+        $("#modal-media-display-mode").val(
+          currentDisplaymode ? currentDisplaymode : 0
+        );
+        $("#redactor-image-preview").html(
+          `<img src="${this.mediadisplaymode.$image.prop(
+            "src"
+          )}" style="max-width: 100%; opacity: 1">`
+        );
+      },
+      save: function($modal, $form) {
+        let displayMode = $("#modal-media-display-mode").val(),
+          $imageTag = this.mediadisplaymode.$imageTag;
+
+        // remove all rd-display-* className
+        $imageTag.removeClass(function(index, className) {
+          return (className.match(/rd-display-\w+/g) || []).join(" ");
+        });
+
+        if (displayMode != 0) {
+          $imageTag.addClass(`rd-display-${displayMode}`);
+        }
+        this.app.api("module.modal.close");
+      }
+    }
+  }
 });
